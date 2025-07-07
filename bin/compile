@@ -22,4 +22,4 @@ else
 fi
 
 rm -rf "${ROOT_BUILD_DIR}/frontend/node_modules"
-rf -rf "${ROOT_BUILD_DIR}/frontend-legacy/node_modules"
+rm -rf "${ROOT_BUILD_DIR}/frontend-legacy/node_modules"
