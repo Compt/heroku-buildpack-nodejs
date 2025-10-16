@@ -88,6 +88,8 @@ handle_failure() {
 }
 trap 'handle_failure' ERR
 
+crash_here_simulate_install_failure
+
 ### Initalize metadata store
 # Create the metadata store
 meta_init "$CACHE_DIR"
