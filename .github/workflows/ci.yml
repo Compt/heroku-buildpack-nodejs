@@ -8,51 +8,56 @@ on:
 permissions:
   contents: read
 
-jobs:
+env:
+  NO_COLOR: 1
 
+jobs:
   unit-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: heroku/heroku:${{ matrix.stack_number }}-build
+      options: --user root
     strategy:
       matrix:
-        stack_number: ["20", "22"]
+        stack_number: ["22", "24"]
     env:
       STACK: heroku-${{ matrix.stack_number }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Unit tests on heroku:${{ matrix.stack_number }}-build
         run: test/unit
 
   functional-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: heroku/heroku:${{ matrix.stack_number }}-build
+      options: --user root
     strategy:
       matrix:
-        stack_number: ["20", "22"]
+        stack_number: ["22", "24"]
+        test_suite: ["npm", "yarn", "pnpm", "general"]
     env:
       STACK: heroku-${{ matrix.stack_number }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Functional tests on heroku:${{ matrix.stack_number }}-build
-        run: test/run
+        uses: actions/checkout@v6
+      - name: Functional tests (${{ matrix.test_suite }}) on heroku:${{ matrix.stack_number }}-build
+        run: test/run-${{ matrix.test_suite }}
 
   hatchet-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
       HEROKU_API_USER: ${{ secrets.HEROKU_API_USER }}
       HATCHET_EXPENSIVE_MODE: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install Ruby and gems
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.7'
+          ruby-version: 3.1
           bundler-cache: true
       - name: Run hatchet tests
         run: make hatchet
@@ -63,12 +68,51 @@ jobs:
       matrix:
         # check the minimum node version supported by the metrics script and the latest node version
         # (assumes the versions between have backwards-compatible APIs)
-        version: [14.10.0, latest]
+        include:
+          - version: 14.10.0
+            mocha: 10.x
+          - version: latest
+            mocha: 11.x
     name: Test Metrics (${{ matrix.version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.version }}
-      - run: npx mocha metrics/test/metrics.spec.cjs
+      - run: npx mocha@${{ matrix.mocha }} metrics/test/metrics.spec.cjs
+
+  rust-test:
+    name: Rust Tests and Linting
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Update Rust toolchain
+        run: rustup update
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+      - name: Run tests
+        run: cargo test --manifest-path ./resolve-version/Cargo.toml --locked
+      - name: Clippy
+        run: cargo clippy --manifest-path ./resolve-version/Cargo.toml --all-targets --locked -- --deny warnings
+
+  yarn-plugin-test:
+    name: Yarn Plugin Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        working-directory: yarn2-plugins/prune-dev-dependencies
+        run: npm ci
+      - name: Run tests
+        working-directory: yarn2-plugins/prune-dev-dependencies
+        run: npm test
+      - name: Verify bundle is up-to-date
+        working-directory: yarn2-plugins/prune-dev-dependencies
+        run: git diff --exit-code bundles/@yarnpkg/plugin-prune-dev-dependencies.js

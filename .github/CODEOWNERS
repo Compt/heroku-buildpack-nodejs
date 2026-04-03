@@ -1,10 +1,18 @@
 # Default to requesting pull request reviews from the Heroku Languages team.
+#ECCN:Open Source
+#GUSINFO:Heroku - Languages,Heroku Node.js Platform
 * @heroku/languages
 
-# However, request review from the language owners instead for files that are updated
+# However, request review from the language owner instead for files that are updated
 # by Dependabot or inventory/release automation, to reduce team review request noise.
-buildpack.toml @joshwlewis @colincasey
-CHANGELOG.md @joshwlewis @colincasey
-Cargo.toml @joshwlewis @colincasey
-Cargo.lock @joshwlewis @colincasey
-inventory/ @joshwlewis @colincasey
+CHANGELOG.md @colincasey
+Cargo.toml @colincasey
+Cargo.lock @colincasey
+Gemfile.lock @colincasey
+inventory/ @colincasey
+npm-shrinkwrap.json @colincasey
+package.json @colincasey
+package-lock.json @colincasey
+pnpm-lock.yaml @colincasey
+yarn.lock @colincasey
+/.github/workflows/ @colincasey

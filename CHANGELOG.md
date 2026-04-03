@@ -3,6 +3,514 @@
 ## [Unreleased]
 
 
+## [v341] - 2026-04-02
+
+- Added Node.js 25.9.0 (linux-amd64)
+
+## [v340] - 2026-03-26
+
+- Workaround for npm 11 regression with Node.js 22.22.2 caused by missing `promise-retry` module. ([#1591](https://github.com/heroku/heroku-buildpack-nodejs/pull/1591))
+
+## [v339] - 2026-03-25
+
+- Added Node.js 25.8.2 (linux-amd64)
+- Added Node.js 24.14.1 (linux-amd64)
+- Added Node.js 22.22.2 (linux-amd64)
+- Added Node.js 20.20.2 (linux-amd64)
+- Upgrade vendored yq from v3 to v4.52.4. ([#1581](https://github.com/heroku/heroku-buildpack-nodejs/pull/1581))
+- Improved curl error handling for Node.js downloads to prevent silent failures and add per-attempt timeouts. ([#1584](https://github.com/heroku/heroku-buildpack-nodejs/pull/1584))
+- Fixed silent yarn install failures when `determine_yarn_package_name` fails. ([#1585](https://github.com/heroku/heroku-buildpack-nodejs/pull/1585))
+
+## [v338] - 2026-03-12
+
+- Added Node.js 25.8.1 (linux-amd64)
+
+## [v337] - 2026-03-05
+
+- Use hard links when saving Yarn 2+ cache to improve build performance. ([#1572](https://github.com/heroku/heroku-buildpack-nodejs/pull/1572))
+
+## [v336] - 2026-03-05
+
+- Added Node.js 25.8.0 (linux-amd64)
+- Added Node.js 22.22.1 (linux-amd64)
+- Added Node.js 20.20.1 (linux-amd64)
+
+## [v335] - 2026-02-25
+
+- Fix Yarn 2+ cache being re-downloaded during dev dependency pruning. ([#1558](https://github.com/heroku/heroku-buildpack-nodejs/pull/1558))
+
+## [v334] - 2026-02-25
+
+- Added Node.js 25.7.0 (linux-amd64)
+- Added Node.js 24.14.0 (linux-amd64)
+
+## [v333] - 2026-02-19
+
+- Fix to skip `.yarnrc.yml` and `yarnPath` validations if Yarn is installed using the `packageManager` field. ([#1556](https://github.com/heroku/heroku-buildpack-nodejs/pull/1556))
+
+## [v332] - 2026-02-19
+
+- Updates to Yarn prune plugin. ([#1553](https://github.com/heroku/heroku-buildpack-nodejs/pull/1553))
+- Update `.yarnrc.yml` and `yarnPath` validations to be optional for Yarn 4. ([#1551](https://github.com/heroku/heroku-buildpack-nodejs/pull/1551))
+- Remove outdated ECONNRESET warning. ([#1550](https://github.com/heroku/heroku-buildpack-nodejs/pull/1550))
+
+## [v331] - 2026-02-10
+
+- Added Node.js 25.6.1 (linux-amd64)
+- Added Node.js 24.13.1 (linux-amd64)
+
+## [v330] - 2026-02-06
+
+- Skip pnpm workspace pruning when lifecycle scripts are present. ([#1546](https://github.com/heroku/heroku-buildpack-nodejs/pull/1546))
+
+## [v329] - 2026-02-04
+
+- Added Node.js 25.6.0 (linux-amd64)
+
+## [v328] - 2026-02-02
+
+- Support pnpm workspace pruning. ([#1535](https://github.com/heroku/heroku-buildpack-nodejs/pull/1535)) 
+- Fix pnpm workspace detection. ([#1528](https://github.com/heroku/heroku-buildpack-nodejs/pull/1528))
+- Fixed issue with parsing pnpm version from the `packageManager` field when an integrity check is present. ([#1540](https://github.com/heroku/heroku-buildpack-nodejs/pull/1540))
+
+## [v327] - 2026-01-27
+
+- Added Node.js 25.5.0 (linux-amd64)
+- Export `WEB_CONCURRENCY_SET_BY=heroku/nodejs` if we calculated set `WEB_CONCURRENCY` on dyno startup ([#932](https://github.com/heroku/heroku-buildpack-nodejs/pull/932))
+
+## [v326] - 2026-01-26
+
+- The corepack tool will no longer be used to install pnpm and Yarn. Usage of the `packageManager` field in `package.json` to declare pnpm as the package manager is still supported. ([#1527](https://github.com/heroku/heroku-buildpack-nodejs/pull/1527))
+
+## [v325] - 2026-01-20
+
+- Added Node.js 25.4.0 (linux-amd64)
+
+## [v324] - 2026-01-14
+
+- Added Node.js 25.3.0 (linux-amd64)
+- Added Node.js 24.13.0 (linux-amd64)
+- Added Node.js 22.22.0 (linux-amd64)
+- Added Node.js 20.20.0 (linux-amd64)
+
+## [v323] - 2026-01-09
+
+- Fix for pnpm + custom caching. ([#1522](https://github.com/heroku/heroku-buildpack-nodejs/pull/1522))
+
+## [v322] - 2025-12-11
+
+- Added Node.js 24.12.0 (linux-amd64)
+
+## [v321] - 2025-12-09
+
+- Update Node.js version resolver binary to emit warnings about wide version ranges and enforce the LTS upper bound. ([#1498](https://github.com/heroku/heroku-buildpack-nodejs/pull/1498))
+
+## [v320] - 2025-12-03
+
+- Updated default Node.js version to 24.x. ([#1510](https://github.com/heroku/heroku-buildpack-nodejs/pull/1510)) 
+
+## [v319] - 2025-11-26
+
+- Added Node.js 20.19.6 (linux-amd64)
+
+## [v318] - 2025-11-18
+
+- Added Node.js 25.2.1 (linux-amd64)
+
+## [v317] - 2025-11-13
+
+- Added Node.js 25.2.0 (linux-amd64)
+- Added Node.js 24.11.1 (linux-amd64)
+
+## [v316] - 2025-10-30
+
+- Added Node.js 25.1.0 (linux-amd64)
+- Added Node.js 24.11.0 (linux-amd64)
+- Added Node.js 22.21.1 (linux-amd64)
+
+## [v315] - 2025-10-23
+
+- Added Node.js 25.0.0 (linux-amd64)
+- Added Node.js 22.21.0 (linux-amd64)
+
+## [v314] - 2025-10-09
+
+- Added Node.js 24.10.0 (linux-amd64)
+
+## [v313] - 2025-09-26
+
+- Added Node.js 24.9.0 (linux-amd64)
+- Moved `resolve_version` code from [Node.js CNB](https://github.com/heroku/buildpacks-nodejs) to here for easier maintenance + rebuilt the binary. ([#1482](https://github.com/heroku/heroku-buildpack-nodejs/pull/1482))
+
+## [v312] - 2025-09-25
+
+- Duplicate publication of v311
+
+## [v311] - 2025-09-25
+
+- Added Node.js 22.20.0 (linux-amd64)
+
+## [v310] - 2025-09-12
+
+- Added Node.js 24.8.0 (linux-amd64)
+
+## [v309] - 2025-09-04
+
+- Added Node.js 20.19.5 (linux-amd64)
+
+## [v308] - 2025-08-29
+
+- Added Node.js 24.7.0 (linux-amd64)
+- Added Node.js 22.19.0 (linux-amd64)
+
+## [v307] - 2025-08-26
+
+- Switch metrics to use new JSON-based data store. ([#1470](https://github.com/heroku/heroku-buildpack-nodejs/pull/1470))
+
+## [v306] - 2025-08-21
+
+- Rollback to v304 functionality due to increase in `bin/report` failures.
+
+## [v305] - 2025-08-21
+
+- Fix control code escaping for buildpack metrics. ([#1464](https://github.com/heroku/heroku-buildpack-nodejs/pull/1464))
+- Add `node_version_major` to buildpack metrics. ([#1465](https://github.com/heroku/heroku-buildpack-nodejs/pull/1465))
+- Cleanup of buildpack metrics and report. ([#1466](https://github.com/heroku/heroku-buildpack-nodejs/pull/1466))
+
+## [v304] - 2025-08-15
+
+- Added Node.js 24.6.0 (linux-amd64)
+- Fix escaping for buildpack metrics. ([#1451](https://github.com/heroku/heroku-buildpack-nodejs/pull/1451))
+- Remove calls to unsupported metrics format (i.e.; `mcount`, `mtime`, `mmeasure`) ([#1454](https://github.com/heroku/heroku-buildpack-nodejs/pull/1454)) 
+
+## [v303] - 2025-08-05
+
+- Fix for checksum validation error when `NODE_BINARY_URL` is used. ([#1447](https://github.com/heroku/heroku-buildpack-nodejs/pull/1447))
+
+## [v302] - 2025-08-01
+
+- Added Node.js 24.5.0 (linux-amd64)
+- Added Node.js 22.18.0 (linux-amd64)
+
+## [v301] - 2025-07-31
+
+- Source Node.js binaries from upstream instead of mirror. ([#1441](https://github.com/heroku/heroku-buildpack-nodejs/pull/1441))
+
+## [v300] - 2025-07-16
+
+- Added Node.js version 24.4.1.
+- Added Node.js version 22.17.1.
+- Added Node.js version 20.19.4.
+
+## [v299] - 2025-07-09
+
+- Added Node.js version 24.4.0.
+- Handle complex Yarn engine requirements. ([#1433](https://github.com/heroku/heroku-buildpack-nodejs/pull/1433))
+
+## [v298] - 2025-06-25
+
+- Added Node.js version 24.3.0.
+- Added Node.js version 22.17.0.
+
+## [v297] - 2025-06-23
+
+- Added Node.js version 20.19.3.
+
+## [v296] - 2025-06-12
+
+- Remove inventory-based resolver for Yarn. Customers may notice the location of the Yarn binary is now at `/app/.heroku/node/bin/yarn` where, previously, it was found at `/app/.heroku/yarn/bin/yarn`. ([#1420](https://github.com/heroku/heroku-buildpack-nodejs/pull/1420))
+- Added Node.js version 24.2.0.
+
+## [v295] - 2025-05-21
+
+- Added Node.js version 24.1.0.
+- Added Node.js version 22.16.0.
+
+## [v294] - 2025-05-16
+
+- Added Node.js version 24.0.2.
+- Added Node.js version 23.11.1.
+- Added Node.js version 22.15.1.
+- Added Node.js version 20.19.2.
+
+## [v293] - 2025-05-13
+
+- Release script will not contribute a default process type if any `mcp` entries are present in the Procfile. ([#1404](https://github.com/heroku/heroku-buildpack-nodejs/pull/1404))
+
+## [v292] - 2025-05-09
+
+- Added Node.js version 24.0.1.
+
+## [v291] - 2025-05-07
+
+- Added Node.js version 24.0.0.
+- Drop all support and references to the now end-of-life `heroku-20` stack. ([#1408](https://github.com/heroku/heroku-buildpack-nodejs/pull/1408))
+
+## [v290] - 2025-04-24
+
+- Added Node.js version 22.15.0.
+- Added Node.js version 20.19.1.
+- Added Yarn version 4.9.1.
+- Added Yarn version 4.9.0.
+
+## [v289] - 2025-04-03
+
+- Added Node.js version 23.11.0.
+- Added Yarn version 4.8.1.
+- Added Yarn version 4.8.0.
+
+## [v288] - 2025-03-28
+
+- Added Node.js version 18.20.8.
+
+## [v287] - 2025-03-14
+
+- Added Node.js version 23.10.0.
+- Added Node.js version 20.19.0.
+- Added Yarn version 4.7.0.
+
+## [v286] - 2025-02-27
+
+- Added Node.js version 23.9.0.
+
+## [v285] - 2025-02-21
+
+- Added Node.js version 18.20.7.
+
+## [v284] - 2025-02-14
+
+- Added Node.js version 23.8.0.
+
+## [v283] - 2025-02-11
+
+- Added Node.js version 22.14.0.
+- Added Node.js version 20.18.3.
+
+## [v282] - 2025-02-06
+
+- Removed `UV_USE_IO_URING` override. ([#1376](https://github.com/heroku/heroku-buildpack-nodejs/pull/1376))
+
+## [v281] - 2025-02-05
+
+- Exporting `COREPACK_HOME` to downstream buildpacks to prevent Corepack shims from downloading the requested package manager again in a subsequent buildpack. ([#1374](https://github.com/heroku/heroku-buildpack-nodejs/pull/1374))
+
+## [v280] - 2025-02-03
+
+- Updated npm keys for Corepack versions 0.27, 0.28, 0.29, 0.30. ([#1371](https://github.com/heroku/heroku-buildpack-nodejs/pull/1371))
+
+## [v279] - 2025-01-31
+
+- Added Node.js version 23.7.0.
+
+## [v278] - 2025-01-22
+
+- Added Node.js version 23.6.1.
+- Added Node.js version 22.13.1.
+- Added Node.js version 20.18.2.
+- Added Node.js version 18.20.6.
+
+## [v277] - 2025-01-08
+
+- Added Node.js version 23.6.0.
+- Added Node.js version 22.13.0.
+
+## [v276] - 2025-01-07
+
+- Added Node.js version 23.5.0.
+- Added Yarn version 4.6.0.
+
+## [v275] - 2024-12-11
+
+- Added Node.js version 23.4.0.
+
+## [v274] - 2024-12-05
+
+- Added Node.js version 22.12.0.
+- Added Yarn version 4.5.3.
+- Added Yarn version 3.8.7.
+
+## [v273] - 2024-11-22
+
+- Added Node.js version 23.3.0.
+- Added Node.js version 20.18.1.
+- Added Yarn version 4.5.2.
+
+## [v272] - 2024-11-21
+
+- Export `UV_USE_IO_URING=0` for later buildpacks to prevent timeouts. ([#1351](https://github.com/heroku/heroku-buildpack-nodejs/pull/1351))
+
+## [v271] - 2024-11-20
+
+- Setting `UV_USE_IO_URING=0` to disable `io_uring` use in `libuv` to prevent build timeouts. ([#1347](https://github.com/heroku/heroku-buildpack-nodejs/pull/1347))
+
+## [v270] - 2024-11-13
+
+- Added Node.js version 23.2.0.
+- Added Node.js version 18.20.5.
+
+## [v269] - 2024-10-31
+
+- Updated default Node.js version to 22.x ([#1341](https://github.com/heroku/heroku-buildpack-nodejs/pull/1341))
+- Added Node.js version 22.11.0.
+
+## [v268] - 2024-10-25
+
+- Added Node.js version 23.1.0.
+
+## [v267] - 2024-10-22
+
+- Added Node.js version 22.10.0.
+- Added Node.js version 23.0.0.
+- Added Yarn version 4.5.1.
+- Added Yarn version 3.8.6.
+
+## [v266] - 2024-10-04
+
+- Added Node.js version 20.18.0.
+
+## [v265] - 2024-09-20
+
+- Added Node.js version 22.9.0.
+- Added Yarn version 4.5.0.
+- Fixed application directory used for `COREPACK_HOME` in CI env ([#1320](https://github.com/heroku/heroku-buildpack-nodejs/pull/1320))
+- Fail on conflicting package manager metadata in package.json. ([#1317](https://github.com/heroku/heroku-buildpack-nodejs/pull/1317))
+
+## [v264] - 2024-09-05
+
+- Added Node.js version 22.8.0.
+- Fixed issue with auto-detection during Heroku CI runs. ([#1313](https://github.com/heroku/heroku-buildpack-nodejs/pull/1313))
+
+## [v263] - 2024-08-27
+
+- Added Node.js version 22.7.0.
+- Added Node.js version 20.17.0.
+- Added Yarn version 4.4.1.
+- Added Yarn version 3.8.5.
+- Add support for auto-detecting `pnpm test` during Heroku CI runs. ([#1308](https://github.com/heroku/heroku-buildpack-nodejs/pull/1308))
+
+## [v262] - 2024-08-12
+
+- Added Node.js version 22.6.0.
+- Added Yarn version 4.4.0.
+- Added Yarn version 3.8.4.
+
+## [v261] - 2024-07-29
+
+- Added Node.js version 20.16.0.
+
+## [v260] - 2024-07-19
+
+- Added Node.js version 22.5.1.
+- Added warning about Node v22.5.0 issues. ([#1299](https://github.com/heroku/heroku-buildpack-nodejs/pull/1299))
+
+## [v259] - 2024-07-18
+
+- Added Node.js version 22.5.0.
+- Skip pruning for pnpm workspace applications. ([#1295](https://github.com/heroku/heroku-buildpack-nodejs/pull/1295))
+
+## [v258] - 2024-07-10
+
+- Export default `NODE_OPTIONS` settings to downstream buildpacks if environment variable is not already set. ([#1293](https://github.com/heroku/heroku-buildpack-nodejs/pull/1293))
+
+## [v257] - 2024-07-09
+
+- Added Node.js version 22.4.1.
+- Added Node.js version 20.15.1.
+- Added Node.js version 18.20.4.
+
+## [v256] - 2024-07-03
+
+- Added Node.js version 22.4.0.
+- Added Yarn version 4.3.1.
+- Added Yarn version 3.8.3.
+
+## [v255] - 2024-06-21
+
+- Added Node.js version 20.15.0.
+
+## [v254] - 2024-06-13
+
+- Added Node.js version 22.3.0.
+- Added Yarn version 4.3.0.
+
+## [v253] - 2024-06-10
+
+- Fix to stop package.json type field from influencing corepack binaries. ([#1271](https://github.com/heroku/heroku-buildpack-nodejs/pull/1271))
+
+## [v252] - 2024-05-29
+
+- Added Node.js version 20.14.0.
+
+## [v251] - 2024-05-22
+
+- Added Node.js version 18.20.3.
+
+## [v250] - 2024-05-16
+
+- Added Node.js version 22.2.0.
+
+## [v249] - 2024-05-15
+
+- Skip pnpm pruning if `NODE_ENV` is not set to `production` or if `PNPM_SKIP_PRUNING` is set to `true` ([#1259](https://github.com/heroku/heroku-buildpack-nodejs/pull/1259))
+
+## [v248] - 2024-05-10
+
+- Added Node.js version 20.13.1.
+- Added Node.js version 20.13.0.
+- Added Yarn version 4.2.2.
+
+## [v247] - 2024-05-03
+
+- Added Node.js version 22.1.0.
+- Added Yarn version 4.2.1.
+- Added Yarn version 4.2.0.
+- Added Yarn version 3.8.2.
+
+## [v246] - 2024-05-02
+
+- Make [Corepack](https://nodejs.org/api/corepack.html) installed binaries available at runtime. ([#1250](https://github.com/heroku/heroku-buildpack-nodejs/pull/1250))
+
+## [v245] - 2024-04-29
+
+- Support [pnpm](https://pnpm.io/) ([#1224](https://github.com/heroku/heroku-buildpack-nodejs/pull/1224))
+
+## [v244] - 2024-04-25
+
+- Added Node.js version 22.0.0.
+- Add support for heroku-24.
+
+## [v243] - 2024-04-10
+
+- Added Node.js version 21.7.3.
+- Added Node.js version 20.12.2.
+- Added Node.js version 18.20.2.
+
+## [v242] - 2024-04-10
+
+- Support [Corepack](https://nodejs.org/api/corepack.html) installation of [Yarn](https://yarnpkg.com/) ([#1222](https://github.com/heroku/heroku-buildpack-nodejs/pull/1222))
+
+## [v241] - 2024-04-04
+
+- Added Node.js version 21.7.2.
+- Added Node.js version 20.12.1.
+- Added Node.js version 18.20.1.
+
+## [v240] - 2024-03-27
+
+- Added Node.js version 20.12.0.
+- Added Node.js version 18.20.0.
+
+## [v239] - 2024-03-11
+
+- Added Node.js version 21.7.1.
+- Added Yarn version 1.22.22.
+
+## [v238] - 2024-03-07
+
+- Added Node.js version 21.7.0.
+- Added Yarn version 4.1.1.
+- Added Yarn version 3.8.1.
+
 ## [v237] - 2024-02-15
 
 - Added Node.js version 21.6.2.
@@ -780,7 +1288,110 @@ Accepts `cacheDirectories` array in package.json to override default `node_modul
 
 - Documented at https://devcenter.heroku.com/articles/nodejs-support#cache-behavior
 
-[unreleased]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v237...main
+[unreleased]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v341...main
+[v341]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v340...v341
+[v340]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v339...v340
+[v339]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v338...v339
+[v338]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v337...v338
+[v337]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v336...v337
+[v336]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v335...v336
+[v335]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v334...v335
+[v334]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v333...v334
+[v333]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v332...v333
+[v332]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v331...v332
+[v331]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v330...v331
+[v330]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v329...v330
+[v329]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v328...v329
+[v328]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v327...v328
+[v327]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v326...v327
+[v326]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v325...v326
+[v325]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v324...v325
+[v324]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v323...v324
+[v323]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v322...v323
+[v322]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v321...v322
+[v321]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v320...v321
+[v320]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v319...v320
+[v319]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v318...v319
+[v318]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v317...v318
+[v317]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v316...v317
+[v316]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v315...v316
+[v315]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v314...v315
+[v314]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v313...v314
+[v313]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v312...v313
+[v312]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v311...v312
+[v311]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v310...v311
+[v310]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v309...v310
+[v309]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v308...v309
+[v308]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v307...v308
+[v307]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v306...v307
+[v305]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v304...v305
+[v304]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v303...v304
+[v303]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v302...v303
+[v302]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v301...v302
+[v301]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v300...v301
+[v300]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v299...v300
+[v299]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v298...v299
+[v298]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v297...v298
+[v297]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v296...v297
+[v296]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v295...v296
+[v295]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v294...v295
+[v294]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v293...v294
+[v293]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v292...v293
+[v292]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v291...v292
+[v291]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v290...v291
+[v290]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v289...v290
+[v289]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v288...v289
+[v288]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v287...v288
+[v287]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v286...v287
+[v286]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v285...v286
+[v285]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v284...v285
+[v284]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v283...v284
+[v283]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v282...v283
+[v282]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v281...v282
+[v281]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v280...v281
+[v280]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v279...v280
+[v279]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v278...v279
+[v278]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v277...v278
+[v277]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v276...v277
+[v276]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v275...v276
+[v275]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v274...v275
+[v274]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v273...v274
+[v273]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v272...v273
+[v272]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v271...v272
+[v271]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v270...v271
+[v270]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v269...v270
+[v269]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v268...v269
+[v268]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v267...v268
+[v267]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v266...v267
+[v266]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v265...v266
+[v265]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v264...v265
+[v264]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v263...v264
+[v263]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v262...v263
+[v262]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v261...v262
+[v261]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v260...v261
+[v260]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v259...v260
+[v259]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v258...v259
+[v258]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v257...v258
+[v257]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v256...v257
+[v256]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v255...v256
+[v255]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v254...v255
+[v254]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v253...v254
+[v253]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v252...v253
+[v252]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v251...v252
+[v251]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v250...v251
+[v250]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v249...v250
+[v249]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v248...v249
+[v248]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v247...v248
+[v247]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v246...v247
+[v246]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v245...v246
+[v245]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v244...v245
+[v244]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v243...v244
+[v243]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v242...v243
+[v242]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v241...v242
+[v241]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v240...v241
+[v240]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v239...v240
+[v239]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v238...v239
+[v238]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v237...v238
 [v237]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v236...v237
 [v236]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v235...v236
 [v235]: https://github.com/heroku/heroku-buildpack-nodejs/compare/v234...v235
