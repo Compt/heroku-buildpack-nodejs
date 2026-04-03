@@ -49,30 +49,40 @@ restore_default_cache_directories() {
   local cache_dir=${2:-}
   local yarn_cache_dir=${3:-}
   local npm_cache=${4:-}
+  local pnpm_cache_dir=${5:-}
 
   if [[ "$YARN" == "true" ]]; then
-    if has_yarn_cache "$build_dir"; then
+    if [[ "$YARN_ZERO_INSTALL" == "true" ]]; then
       echo "- yarn cache is checked into source control and cannot be cached"
     elif [[ -e "$cache_dir/node/cache/yarn" ]]; then
       rm -rf "$yarn_cache_dir"
+      mkdir -p "$(dirname "$yarn_cache_dir")"
       mv "$cache_dir/node/cache/yarn" "$yarn_cache_dir"
       if [[ -d "$yarn_cache_dir/yarn" ]]; then
         # Older versions of the buildpack may have created nested yarn caches.
         # This will remove the nested cache. This correction may be removed in
         # the near future.
-        meta_set "yarn_nested_cache" "true"
         rm -rf "$yarn_cache_dir/yarn"
       fi
       echo "- yarn cache"
     else
       echo "- yarn cache (not cached - skipping)"
     fi
+  elif [[ "$PNPM" == "true" ]]; then
+    if [[ -d "$cache_dir/node/cache/pnpm" ]]; then
+      rm -rf "$pnpm_cache_dir"
+      mv "$cache_dir/node/cache/pnpm" "$pnpm_cache_dir"
+      echo "- pnpm cache"
+      build_data::set_raw "pnpm_cache" "true"
+    else
+      echo "- pnpm cache (not cached - skipping)"
+    fi
   elif [[ "$USE_NPM_INSTALL" == "false" ]]; then
     if [[ -d "$cache_dir/node/cache/npm" ]]; then
       rm -rf "$npm_cache"
       mv "$cache_dir/node/cache/npm" "$npm_cache"
       echo "- npm cache"
-      meta_set "npm_cache" "true"
+      build_data::set_raw "npm_cache" "true"
     else
       echo "- npm cache (not cached - skipping)"
     fi
@@ -99,13 +109,16 @@ restore_custom_cache_directories() {
   local cache_directories
   local build_dir=${1:-}
   local cache_dir=${2:-}
+  local pnpm_cache_dir=${3:-}
   # Parse the input string with multiple lines: "a\nb\nc" into an array
-  mapfile -t cache_directories <<< "$3"
+  mapfile -t cache_directories <<< "$4"
 
-  echo "Loading ${#cache_directories[@]} from cacheDirectories (package.json):"
+  echo "Loading from cacheDirectories (package.json):"
 
   for cachepath in "${cache_directories[@]}"; do
-    if [ -e "$build_dir/$cachepath" ]; then
+    if [[ "$PNPM" == "true" ]] && [[ "$cachepath" =~ ^node_modules(/|$) ]]; then
+      echo "- $cachepath (skipping because pnpm is used)"
+    elif [ -e "$build_dir/$cachepath" ]; then
       echo "- $cachepath (exists - skipping)"
     else
       if [ -e "$cache_dir/node/cache/$cachepath" ]; then
@@ -117,6 +130,15 @@ restore_custom_cache_directories() {
       fi
     fi
   done
+
+  if [[ "$PNPM" == "true" ]] && [ -e "$cache_dir/node/cache/pnpm/store" ]; then
+    echo "- pnpm store (included because pnpm is used)"
+    # the $pnpm_cache_dir is created at the start of the build so, now, if we want to
+    # rename the cache directory to $pnpm_cache_dir, we have to remove it or we'll
+    # end up with a $pnpm_cache_dir/store directory instead of $pnpm_cache_dir.
+    rm -rf "$pnpm_cache_dir"
+    mv "$cache_dir/node/cache/pnpm/store" "$pnpm_cache_dir"
+  fi
 }
 
 clear_cache() {
@@ -131,15 +153,35 @@ save_default_cache_directories() {
   local cache_dir=${2:-}
   local yarn_cache_dir=${3:-}
   local npm_cache=${4:-}
+  local pnpm_cache_dir=${5:-}
 
   if [[ "$YARN" == "true" ]]; then
     if [[ -d "$yarn_cache_dir" ]]; then
-      if [[ "$YARN_2" == "true" ]] && ! node_modules_enabled "$BUILD_DIR"; then
-        cp -RTf "$yarn_cache_dir" "$cache_dir/node/cache/yarn"
+      if [[ "$YARN_ZERO_INSTALL" == "true" ]]; then
+        echo "- yarn cache is checked into source control and cannot be cached"
+      elif [[ "$YARN_2" == "true" ]]; then
+        # For improved performance, we copy using hard links if possible. This
+        # requires that the yarn cache and build cache directories are on the
+        # same filesystem mount — which is the case for standard builds but not
+        # Heroku CI or build-in-app-dir.
+        local yarn_cache_fs cache_fs
+        yarn_cache_fs=$(df --output=target "$yarn_cache_dir" 2>/dev/null | tail -n1)
+        cache_fs=$(df --output=target "$cache_dir" 2>/dev/null | tail -n1)
+        if [[ "${yarn_cache_fs}" == "${cache_fs}" && -n "${yarn_cache_fs}" ]]; then
+          cp -RTf --no-dereference --link "$yarn_cache_dir" "$cache_dir/node/cache/yarn"
+        else
+          cp -RTf "$yarn_cache_dir" "$cache_dir/node/cache/yarn"
+        fi
+        echo "- yarn cache"
       else
         mv "$yarn_cache_dir" "$cache_dir/node/cache/yarn"
+        echo "- yarn cache"
       fi
-      echo "- yarn cache"
+    fi
+  elif [[ "$PNPM" == "true" ]]; then
+    if [[ -d "$pnpm_cache_dir" ]]; then
+      mv "$pnpm_cache_dir" "$cache_dir/node/cache/pnpm"
+      echo "- pnpm cache"
     fi
   elif [[ "$USE_NPM_INSTALL" == "false" ]]; then
     if [[ -d "$npm_cache" ]]; then
@@ -156,34 +198,37 @@ save_default_cache_directories() {
       cp -a "$build_dir/node_modules" "$(dirname "$cache_dir/node/cache/node_modules")"
     else
       # this can happen if there are no dependencies
-      mcount "cache.no-node-modules"
       echo "- node_modules (nothing to cache)"
     fi
   fi
 
   # bower_components
   if [[ -e "$build_dir/bower_components" ]]; then
-    mcount "cache.saved-bower-components"
-    meta_set "cached-bower-components" "true"
+    build_data::set_raw "has_cached_bower_components" "true"
     echo "- bower_components"
     mkdir -p "$cache_dir/node/cache/bower_components"
     cp -a "$build_dir/bower_components" "$(dirname "$cache_dir/node/cache/bower_components")"
+  else
+    build_data::set_raw "has_cached_bower_components" "false"
   fi
 
-  meta_set "node-custom-cache-dirs" "false"
+  build_data::set_raw "has_custom_cache_dirs" "false"
 }
 
 save_custom_cache_directories() {
   local cache_directories
   local build_dir=${1:-}
   local cache_dir=${2:-}
+  local pnpm_cache_dir=${3:-}
   # Parse the input string with multiple lines: "a\nb\nc" into an array
-  mapfile -t cache_directories <<< "$3"
+  mapfile -t cache_directories <<< "$4"
 
-  echo "Saving ${#cache_directories[@]} cacheDirectories (package.json):"
+  echo "Saving cacheDirectories (package.json):"
 
   for cachepath in "${cache_directories[@]}"; do
-    if [ -e "$build_dir/$cachepath" ]; then
+    if [[ "$PNPM" == "true" ]] && [[ "$cachepath" =~ ^node_modules(/|$) ]]; then
+      echo "- $cachepath (skipping because pnpm is used)"
+    elif [ -e "$build_dir/$cachepath" ]; then
       echo "- $cachepath"
       mkdir -p "$cache_dir/node/cache/$cachepath"
       cp -a "$build_dir/$cachepath" "$(dirname "$cache_dir/node/cache/$cachepath")"
@@ -192,5 +237,45 @@ save_custom_cache_directories() {
     fi
   done
 
-  meta_set "node-custom-cache-dirs" "true"
+  if [[ "$PNPM" == "true" ]] && [ -e "$pnpm_cache_dir" ]; then
+    echo "- pnpm store (included because pnpm is used)"
+    mkdir -p "$cache_dir/node/cache/pnpm"
+    cp -a "$pnpm_cache_dir" "$cache_dir/node/cache/pnpm/store"
+  fi
+
+  build_data::set_raw "has_custom_cache_dirs" "true"
+}
+
+DEFAULT_PNPM_PRUNE_COUNTER_VALUE="40"
+
+load_pnpm_prune_store_counter() {
+  local cache_dir=${1:-}
+
+  if [ -f "$cache_dir/pnpm_prune_store_counter" ]; then
+    counter=$(<"$cache_dir/pnpm_prune_store_counter")
+    if ! is_int "$counter" || (( counter < 0 )); then
+      counter="$DEFAULT_PNPM_PRUNE_COUNTER_VALUE"
+    fi
+  else
+    counter="$DEFAULT_PNPM_PRUNE_COUNTER_VALUE"
+  fi
+
+  echo "$counter"
+}
+
+save_pnpm_prune_store_counter() {
+  local cache_dir=${1:-}
+  local new_value=${2:-}
+
+  if ! is_int "$new_value" || (( new_value < 0 )); then
+    new_value="$DEFAULT_PNPM_PRUNE_COUNTER_VALUE"
+  fi
+
+  echo "$new_value" > "$cache_dir/pnpm_prune_store_counter"
+}
+
+is_int() {
+  case ${1#[-+]} in
+    '' | *[!0-9]*) return 1;;
+  esac
 }

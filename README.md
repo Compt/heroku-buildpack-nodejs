@@ -1,6 +1,6 @@
 # Heroku Buildpack for Node.js
 
-![nodejs](https://cloud.githubusercontent.com/assets/51578/13712672/efdf2a40-e792-11e5-82ef-492478cbc0dc.png)
+![nodejs](https://raw.githubusercontent.com/heroku/buildpacks/refs/heads/main/assets/images/buildpack-banner-node-js.png)
 
 This is the official [Heroku buildpack](http://devcenter.heroku.com/articles/buildpacks) for Node.js apps.
 
@@ -110,8 +110,8 @@ make test
 Or to just test a specific stack:
 
 ```
-make heroku-20-build
 make heroku-22-build
+make heroku-24-build
 ```
 
 The tests are run via the vendored
