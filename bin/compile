@@ -1,28 +1,486 @@
 #!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir> <env-dir>
+
+### Configure environment
 
 set -o errexit    # always exit on error
 set -o pipefail   # don't ignore exit codes when piping output
+unset GIT_DIR     # Avoid GIT_DIR leak from previous build steps
 
-ROOT_BUILD_DIR=$1
-CACHE_DIR=$2
-ENV_DIR=$3
+[ "$BUILDPACK_XTRACE" ] && set -o xtrace
 
-BIN_DIR=$(cd "$(dirname "$0")"; pwd) # absolute path
-OG_COMPILE_SCRIPT="$BIN_DIR/og_compile"
+### Configure directories
 
-CUSTOM_SCRIPT_CONFIG_VAR_PATH="$ENV_DIR/NODE_BUILD_SCRIPT"
+BUILD_DIR=${1:-}
+CACHE_DIR=${2:-}
+ENV_DIR=${3:-}
+BP_DIR=$(cd "$(dirname "${0:-}")"; cd ..; pwd)
 
-if test -f "$CUSTOM_SCRIPT_CONFIG_VAR_PATH"; then
-  echo "Found custom build script config var: $CUSTOM_SCRIPT_CONFIG_VAR_PATH"
-  script_path_val=$(cat "$CUSTOM_SCRIPT_CONFIG_VAR_PATH")
-  custom_script_path="$ROOT_BUILD_DIR/$script_path_val"
-  echo "Using script $custom_script_path"
-  /bin/bash "$custom_script_path" "$OG_COMPILE_SCRIPT" "$ROOT_BUILD_DIR" "$CACHE_DIR" "$ENV_DIR"
+### Load dependencies
 
-else
-  echo  "Did not find any custom build scripts. Using default..."
-  /bin/bash "$OG_COMPILE_SCRIPT" "$ROOT_BUILD_DIR" "$CACHE_DIR" "$ENV_DIR"
+# shellcheck source=lib/vendor/stdlib_v7.sh
+source "$BP_DIR/lib/vendor/stdlib_v7.sh"
+# shellcheck source=lib/output.sh
+source "$BP_DIR/lib/output.sh"
+# shellcheck source=lib/monitor.sh
+source "$BP_DIR/lib/monitor.sh"
+# shellcheck source=lib/environment.sh
+source "$BP_DIR/lib/environment.sh"
+# shellcheck source=lib/npm.sh
+source "$BP_DIR/lib/npm.sh"
+# shellcheck source=lib/failure.sh
+source "$BP_DIR/lib/failure.sh"
+# shellcheck source=lib/binaries.sh
+source "$BP_DIR/lib/binaries.sh"
+# shellcheck source=lib/json.sh
+source "$BP_DIR/lib/json.sh"
+# shellcheck source=lib/yaml.sh
+source "$BP_DIR/lib/yaml.sh"
+# shellcheck source=lib/cache.sh
+source "$BP_DIR/lib/cache.sh"
+# shellcheck source=lib/dependencies.sh
+source "$BP_DIR/lib/dependencies.sh"
+# shellcheck source=lib/plugin.sh
+source "$BP_DIR/lib/plugin.sh"
+# shellcheck source=lib/uuid.sh
+source "$BP_DIR/lib/uuid.sh"
+# shellcheck source=lib/kvstore.sh
+source "$BP_DIR/lib/kvstore.sh"
+# shellcheck source=lib/features.sh
+source "$BP_DIR/lib/features.sh"
+# shellcheck source=lib/builddata.sh
+source "$BP_DIR/lib/builddata.sh"
+# shellcheck source=lib/yarn-2.sh
+source "$BP_DIR/lib/yarn-2.sh"
+
+export PATH="$BUILD_DIR/.heroku/node/bin:$BUILD_DIR/.heroku/yarn/bin":$PATH
+
+LOG_FILE=$(mktemp -t node-build-log.XXXXX)
+echo "" > "$LOG_FILE"
+
+build_start_time=$(build_data::current_unix_realtime)
+
+### Initialize metrics and features
+features_init "nodejs" "$BUILD_DIR" "$CACHE_DIR" "$BP_DIR/features"
+build_data::setup
+
+### Save build info
+
+# the "build-step" key keeps track of where we are in the execution so that we can see where failed builds errored
+build_data::set_string "build_step" "init"
+
+# capture procfile usage
+build_data::set_raw "has_procfile" "$(test -f "$BUILD_DIR/Procfile" && echo "true" || echo "false")"
+
+# capture scripts from package.json
+for script in heroku-prebuild heroku-postbuild build heroku-cleanup start postinstall; do
+  if [[ "$(has_script "$BUILD_DIR/package.json" "$script")" == "true" ]]; then
+    build_data::set_string "${script//[^[:alnum:]]/_}_script" "$(read_json "$BUILD_DIR/package.json" ".scripts[\"$script\"]")"
+  fi
+done
+
+# add any active features to the metadata set prefixed with the key "feature_"
+features_list | while read -r key; do
+  if [[ -n $key ]]; then
+    build_data::set_raw "feature_$key" "$(features_get "$key")"
+  fi
+done
+
+### Handle errors
+
+handle_failure() {
+  header "Build failed"
+  fail_using_yarn2_with_yarn_production_environment_variable_set "$LOG_FILE"
+  fail_yarn_outdated "$LOG_FILE"
+  fail_yarn_lockfile_outdated "$LOG_FILE"
+  fail_node_install "$LOG_FILE" "$BUILD_DIR"
+  fail_yarn_install "$LOG_FILE" "$BUILD_DIR"
+  fail_invalid_semver "$LOG_FILE"
+  log_other_failures "$LOG_FILE"
+  warn_aws_proxy "$BUILD_DIR"
+  warn_untracked_dependencies "$LOG_FILE"
+  warn_angular_resolution "$LOG_FILE"
+  warn_missing_devdeps "$LOG_FILE" "$BUILD_DIR"
+  failure_message | output "$LOG_FILE"
+}
+trap 'handle_failure' ERR
+
+### Check initial state
+
+[ -e "$BUILD_DIR/node_modules" ] && PREBUILD=true || PREBUILD=false
+[ -f "$BUILD_DIR/yarn.lock" ] && YARN=true || YARN=false
+[ -f "$BUILD_DIR/package-lock.json" ] && NPM_LOCK=true || NPM_LOCK=false
+[ -f "$BUILD_DIR/pnpm-lock.yaml" ] && PNPM=true || PNPM=false
+YARN_2=$(detect_yarn_2 "$YARN" "$BUILD_DIR")
+
+### Failures that should be caught immediately
+
+fail_dot_heroku "$BUILD_DIR"
+fail_dot_heroku_node "$BUILD_DIR"
+fail_invalid_package_json "$BUILD_DIR"
+fail_multiple_lockfiles "$BUILD_DIR"
+fail_conflicting_package_manager_metadata "$BUILD_DIR"
+fail_iojs_unsupported "$BUILD_DIR"
+warn_prebuilt_modules "$BUILD_DIR"
+warn_missing_package_json "$BUILD_DIR"
+
+### Compile
+
+create_env() {
+  export_env_dir "$ENV_DIR"
+  create_default_env "$YARN"
+  write_profile "$BP_DIR" "$BUILD_DIR"
+  write_export "$BP_DIR" "$BUILD_DIR"
+}
+
+header "Creating runtime environment" | output "$LOG_FILE"
+
+mkdir -p "$BUILD_DIR/.heroku/node/"
+cd "$BUILD_DIR"
+create_env # can't pipe the whole thing because piping causes subshells, preventing exports
+list_node_config | output "$LOG_FILE"
+create_build_env
+
+
+### Configure vendored package manager
+export VENDOR_PATH
+
+if [[ "$YARN_2" == "true" ]]; then
+  if [[ -f "$BUILD_DIR/.npmrc" ]]; then
+    warn "There is an existing .npmrc file that will not be used. All configurations are read from the .yarnrc.yml file." "https://devcenter.heroku.com/articles/migrating-to-yarn-2"
+  fi
+
+  if [[ -f "$BUILD_DIR/.yarnrc" ]]; then
+    warn "There is an existing .yarnrc file that will not be used. All configurations are read from the .yarnrc.yml file." "https://devcenter.heroku.com/articles/migrating-to-yarn-2"
+  fi
+
+  # When in Plug'n'Play mode the yarn cache will include dependencies needed at
+  # runtime; the cache must live in /app (not /tmp) so that dependencies are
+  # persisted. When using zero-install, /app/.yarn/cache will include all
+  # dependencies which yarn should reuse.
+  if use_yarn_app_cache "$BUILD_DIR"; then
+    YARN_CACHE_FOLDER=${YARN_CACHE_FOLDER:-"$BUILD_DIR/.yarn/cache"}
+  fi
+
+  # When in zero-install mode, use --immutable-cache to verify that the cache
+  # is pristine. Cache mutation is expected in nonzero installs.
+  if has_yarn_cache "$BUILD_DIR"; then
+    YARN_ENABLE_IMMUTABLE_CACHE=${YARN_ENABLE_IMMUTABLE_CACHE:-true}
+    YARN_ZERO_INSTALL=true
+  fi
+
+  ### Configure Yarn 2+
+  YARN_MAJOR_VERSION=$(get_yarn_major_version "$BUILD_DIR")
+
+  # if we're installing yarn via packageManager or engines.yarn we don't need to fail
+  # on the yarn path configuration or vendored script
+  case "$YARN_MAJOR_VERSION" in
+    # You may be wondering why 1 and "" are in this list when the check above ensures that
+    # YARN_2 is true. This is because, when no yarn version is specified, we default
+    # to Yarn 1 which is then used to bootstrap Yarn 2+ and some existing setups specify
+    # Yarn 1 in engines.yarn or packageManager to use a specific version for bootstrapping.
+    1|"")
+      # This ensures we check for a vendored Yarn if we're using Yarn 1 to bootstrap
+      fail_missing_yarnrc_yml "$BUILD_DIR"
+      VENDOR_PATH=$(get_yarn_path "$BUILD_DIR")
+      fail_missing_yarn_path "$BUILD_DIR" "$VENDOR_PATH"
+      ;;
+    *)
+      # no need to require a vendored yarnPath (though one may still be configured)
+      if [[ -f "$BUILD_DIR/.yarnrc.yml" ]]; then
+        VENDOR_PATH=$(get_yarn_path "$BUILD_DIR")
+      fi
+      ;;
+  esac
+
+  # Always validate vendored script exists if yarnPath is defined
+  if [[ -n "$VENDOR_PATH" ]]; then
+    fail_missing_yarn_vendor "$BUILD_DIR" "$VENDOR_PATH"
+  fi
 fi
 
-rm -rf "${ROOT_BUILD_DIR}/frontend/node_modules"
-rm -rf "${ROOT_BUILD_DIR}/frontend-legacy/node_modules"
+### Configure package manager cache directories
+[ ! "$YARN_CACHE_FOLDER" ] && YARN_CACHE_FOLDER=$(mktemp -d -t yarncache.XXXXX)
+[ ! "$NPM_CONFIG_CACHE" ] && NPM_CONFIG_CACHE=$(mktemp -d -t npmcache.XXXXX)
+[ ! "$PNPM_CONFIG_CACHE" ] && PNPM_CONFIG_CACHE=$(mktemp -d -t pnpmcache.XXXXX)
+export YARN_CACHE_FOLDER NPM_CONFIG_CACHE PNPM_CONFIG_CACHE
+
+install_bins() {
+  local node_engine npm_engine yarn_engine node_version package_manager pnpm_engine
+
+  node_engine=$(read_json "$BUILD_DIR/package.json" ".engines.node")
+  npm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.npm")
+  yarn_engine=$(read_json "$BUILD_DIR/package.json" ".engines.yarn")
+  pnpm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.pnpm")
+  package_manager=$(read_json "$BUILD_DIR/package.json" ".packageManager")
+
+  [ -n "$node_engine" ] && build_data::set_string "node_version_request" "$node_engine"
+  [ -n "$npm_engine" ] && build_data::set_string "npm_version_request" "$npm_engine"
+  [ -n "$yarn_engine" ] && build_data::set_string "yarn_version_request" "$yarn_engine"
+  [ -n "$pnpm_engine" ] && build_data::set_string "pnpm_version_request" "$pnpm_engine"
+  [ -n "$package_manager" ] && build_data::set_string "package_manager_request" "$package_manager"
+
+  echo "engines.node (package.json):   ${node_engine:-unspecified}"
+  echo "engines.npm (package.json):    ${npm_engine:-unspecified (use default)}"
+
+  if $YARN || [ -n "$yarn_engine" ]; then
+    echo "engines.yarn (package.json):   ${yarn_engine:-unspecified (use default)}"
+  fi
+
+  if $PNPM || [ -n "$pnpm_engine" ]; then
+    echo "engines.pnpm (package.json):   ${pnpm_engine:-unspecified (use default)}"
+  fi
+
+  if [ -n "$package_manager" ]; then
+    echo "packageManager (package.json): $(echo "$package_manager" | cut -d "+" -f 1)"
+  fi
+
+  echo ""
+
+  warn_node_engine "$node_engine"
+
+  if [ -n "$pnpm_engine" ] && [[ "$package_manager" == pnpm* ]]; then
+    warn_multiple_pnpm_version "$package_manager" "$pnpm_engine"
+  fi
+
+  if [ -n "$yarn_engine" ] && [[ "$package_manager" == yarn* ]]; then
+    warn_multiple_yarn_version "$package_manager" "$yarn_engine"
+  fi
+
+  if has_release_script "$BUILD_DIR" && [[ "$package_manager" == yarn* ]]; then
+    warn_yarn_release_script_with_package_manager "$package_manager" "$(get_yarn_path "$BUILD_DIR")"
+  fi
+
+  build_data::set_string "build_step" "install-nodejs"
+  monitor "install_node_binary" install_nodejs "$node_engine" "$BUILD_DIR/.heroku/node"
+  build_data::set_string "node_version" "$(node --version)"
+  build_data::set_raw "node_version_major" "$(get_node_major_version)"
+  build_data::set_string "bundled_npm_version" "$(npm --version)"
+
+  build_data::set_string "build_step" "install-npm"
+  install_npm "$npm_engine" "$BUILD_DIR/.heroku/node" "$NPM_LOCK"
+
+  if ! has_release_script "$BUILD_DIR" && [[ "$package_manager" == yarn* ]]; then
+    build_data::set_string "build_step" "install-yarn"
+    yarn_version="$(echo "$package_manager" | cut -d '@' -f 2 | cut -d "#" -f 1)"
+    monitor "install_yarn_binary" install_yarn "$BUILD_DIR/.heroku/yarn" "$yarn_version"
+  else
+    # Download yarn if there is a yarn.lock file or if the user
+    # has specified a version of yarn under "engines". We'll still
+    # only install using yarn if there is a yarn.lock file
+    if $YARN || [ -n "$yarn_engine" ]; then
+      build_data::set_string "build_step" "install-yarn"
+      monitor "install_yarn_binary" install_yarn "$BUILD_DIR/.heroku/yarn" "$yarn_engine"
+    fi
+  fi
+
+  if $PNPM; then
+    build_data::set_string "build_step" "install-pnpm"
+
+    default_pnpm_version="pnpm@latest"
+    using_default_pnpm=false
+    pnpm_version="latest"
+    if [[ "$package_manager" == pnpm* ]]; then
+      pnpm_version="$(echo "$package_manager" | cut -d '@' -f 2 | cut -d "+" -f 1)"
+    elif [ -n "$pnpm_engine" ]; then
+      pnpm_version="${pnpm_engine}"
+    else
+      using_default_pnpm=true
+    fi
+
+    monitor "install_pnpm_binary" install_pnpm "$pnpm_version"
+    pnpm config set store-dir "$PNPM_CONFIG_CACHE" 2>&1
+    if [ "$using_default_pnpm" == true ]; then
+      warn_default_pnpm_version_used "$default_pnpm_version"
+    fi
+  fi
+
+  if $YARN; then
+    build_data::set_string "package_manager" "yarn"
+    build_data::set_string "package_manager_version" "$(yarn --version)"
+    build_data::set_string "yarn_version" "$(yarn --version)"
+  elif $PNPM; then
+    build_data::set_string "package_manager" "pnpm"
+    build_data::set_string "package_manager_version" "$(pnpm --version)"
+    build_data::set_string "pnpm_version" "$(pnpm --version)"
+  else
+    build_data::set_string "package_manager" "npm"
+    build_data::set_string "package_manager_version" "$(npm --version)"
+    build_data::set_string "npm_version" "$(npm --version)"
+  fi
+
+  warn_old_npm
+
+  if [[ $YARN_2 == true ]]; then
+    YARN=false
+  fi
+}
+
+header "Installing binaries" | output "$LOG_FILE"
+install_bins | output "$LOG_FILE"
+
+if [[ -z "$USE_NPM_INSTALL" ]]; then
+  if [[ "$(should_use_npm_ci "$BUILD_DIR")" == "true" ]]; then
+    USE_NPM_INSTALL=false
+  else
+    USE_NPM_INSTALL=true
+  fi
+fi
+
+restore_cache() {
+  local cache_status cache_directories restore_cache_start_time
+  restore_cache_start_time=$(build_data::current_unix_realtime)
+
+  cache_status="$(get_cache_status "$CACHE_DIR")"
+  cache_directories="$(get_cache_directories "$BUILD_DIR")"
+
+  if $YARN; then
+    if $PREBUILD && [[ "$SKIP_NODE_MODULES_CHECK" == "true" ]]; then
+      echo "Keeping existing node_modules because SKIP_NODE_MODULES_CHECK=${SKIP_NODE_MODULES_CHECK}"
+    elif $PREBUILD; then
+      warn "node_modules checked into source control" "https://devcenter.heroku.com/articles/node-best-practices#only-git-the-important-bits"
+      rm -rf "$BUILD_DIR/node_modules"
+    fi
+  fi
+
+  if [[ "$cache_status" == "disabled" ]]; then
+    header "Restoring cache"
+    echo "Caching has been disabled because NODE_MODULES_CACHE=${NODE_MODULES_CACHE}"
+  elif [[ "$cache_status" == "valid" ]]; then
+    header "Restoring cache"
+    if [[ "$cache_directories" == "" ]]; then
+      restore_default_cache_directories "$BUILD_DIR" "$CACHE_DIR" "$YARN_CACHE_FOLDER" "$NPM_CONFIG_CACHE" "$PNPM_CONFIG_CACHE"
+    else
+      restore_custom_cache_directories "$BUILD_DIR" "$CACHE_DIR" "$PNPM_CONFIG_CACHE" "$cache_directories"
+    fi
+  elif [[ "$cache_status" == "new-signature" ]]; then
+    header "Restoring cache"
+    if [[ "$cache_directories" == "" ]]; then
+      echo "Cached directories were not restored due to a change in version of node, npm, yarn or stack"
+      echo "Module installation may take longer for this build"
+    else
+      # If the user has specified custom cache directories, be more explicit
+      echo "Invalidating cache due to a change in version of node, npm, yarn or stack"
+      echo "Will not restore the following directories for this build:"
+      for directory in $cache_directories; do
+        echo "  $directory"
+      done
+    fi
+  else
+    # No cache exists, be silent
+    :
+  fi
+
+  # Remove any legacy cache contents written by older buildpack versions.
+  rm -rf "${CACHE_DIR}/build-data/nodejs" "${CACHE_DIR}/build-data/nodejs-prev"
+
+  build_data::set_string "cache_status" "${cache_status}"
+  build_data::set_duration "restore_cache_time" "${restore_cache_start_time}"
+}
+
+build_data::set_string "build_step" "restore-cache"
+restore_cache | output "$LOG_FILE"
+
+build_dependencies() {
+  local cache_status start
+
+  cache_status="$(get_cache_status "$CACHE_DIR")"
+  start=$(build_data::current_unix_realtime)
+  if [[ "$YARN_2" == "true" ]]; then
+    yarn_2_install "$BUILD_DIR"
+  elif $YARN; then
+    yarn_node_modules "$BUILD_DIR"
+  elif $PNPM; then
+    pnpm_install "$BUILD_DIR" "$CACHE_DIR"
+  elif $PREBUILD; then
+    echo "Prebuild detected (node_modules already exists)"
+    npm_rebuild "$BUILD_DIR"
+  else
+    npm_node_modules "$BUILD_DIR"
+  fi
+
+  build_data::set_string "build_step" "build-script"
+  header "Build"
+  run_build_script "$BUILD_DIR"
+}
+
+build_data::set_string "build_step" "prebuild-script"
+run_prebuild_script "$BUILD_DIR" | output "$LOG_FILE"
+
+header "Installing dependencies" | output "$LOG_FILE"
+build_data::set_string "build_step" "install-dependencies"
+build_dependencies | output "$LOG_FILE"
+
+cache_build() {
+  local cache_directories cache_build_start_time
+  cache_build_start_time=$(build_data::current_unix_realtime)
+  cache_directories="$(get_cache_directories "$BUILD_DIR")"
+
+  clear_cache "$CACHE_DIR"
+  if ! ${NODE_MODULES_CACHE:-true}; then
+    # we've already warned that caching is disabled in the restore step
+    # so be silent here
+    :
+  elif [[ "$cache_directories" == "" ]]; then
+    header "Caching build"
+    save_default_cache_directories "$BUILD_DIR" "$CACHE_DIR" "$YARN_CACHE_FOLDER" "$NPM_CONFIG_CACHE" "$PNPM_CONFIG_CACHE"
+  else
+    header "Caching build"
+    save_custom_cache_directories "$BUILD_DIR" "$CACHE_DIR" "$PNPM_CONFIG_CACHE" "$cache_directories"
+  fi
+  save_signature "$CACHE_DIR"
+  build_data::set_duration "save_cache_time" "$cache_build_start_time"
+}
+
+prune_devdependencies() {
+  if $YARN || $YARN_2; then
+    yarn_prune_devdependencies "$BUILD_DIR" "$YARN_CACHE_FOLDER" "$BP_DIR"
+  elif $PNPM; then
+    pnpm_prune_devdependencies "$BUILD_DIR"
+  else
+    npm_prune_devdependencies "$BUILD_DIR"
+  fi
+}
+
+if $YARN_2; then
+  build_data::set_string "build_step" "save-cache"
+  cache_build | output "$LOG_FILE"
+  build_data::set_string "build_step" "prune-dependencies"
+  header "Pruning devDependencies" | output "$LOG_FILE"
+  prune_devdependencies | output "$LOG_FILE"
+elif "$YARN" && "$USE_YARN_CACHE" && [[ "$(get_cache_directories "$BUILD_DIR")" == "" ]]; then
+  build_data::set_string "build_step" "prune-dependencies"
+  header "Pruning devDependencies" | output "$LOG_FILE"
+  prune_devdependencies | output "$LOG_FILE"
+  build_data::set_string "build_step" "save-cache"
+  cache_build | output "$LOG_FILE"
+else
+  build_data::set_string "build_step" "save-cache"
+  cache_build | output "$LOG_FILE"
+  build_data::set_string "build_step" "prune-dependencies"
+  header "Pruning devDependencies" | output "$LOG_FILE"
+  prune_devdependencies | output "$LOG_FILE"
+fi
+
+build_data::set_string "build_step" "cleanup-script"
+run_cleanup_script "$BUILD_DIR" | output "$LOG_FILE"
+
+summarize_build() {
+  if $NODE_VERBOSE; then
+    list_dependencies "$BUILD_DIR"
+  fi
+}
+
+build_data::set_string "build_step" "install-metrics-plugin"
+install_plugin "$BP_DIR" "$BUILD_DIR"
+
+build_data::set_string "build_step" "summarize"
+header "Build succeeded!" | output "$LOG_FILE"
+summarize_build | output "$LOG_FILE"
+build_data::set_duration "build_time" "$build_start_time"
+
+warn_no_start "$BUILD_DIR"
+warn_unmet_dep "$LOG_FILE"
+warn_old_npm_lockfile "$NPM_LOCK"
+
+build_data::set_string "build_step" "finished"
