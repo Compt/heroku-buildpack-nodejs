@@ -4,6 +4,7 @@ on:
   push:
     branches: ["main"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,6 +13,20 @@ env:
   NO_COLOR: 1
 
 jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install shfmt
+        run: |
+          SHFMT_VERSION=v3.13.0
+          curl -fsSL -o /usr/local/bin/shfmt \
+            "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          chmod +x /usr/local/bin/shfmt
+      - name: Lint migrated files
+        run: make lint
+
   unit-test:
     runs-on: ubuntu-24.04
     container:
@@ -19,12 +34,12 @@ jobs:
       options: --user root
     strategy:
       matrix:
-        stack_number: ["22", "24"]
+        stack_number: ["22", "24", "26"]
     env:
       STACK: heroku-${{ matrix.stack_number }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Unit tests on heroku:${{ matrix.stack_number }}-build
         run: test/unit
 
@@ -34,14 +49,15 @@ jobs:
       image: heroku/heroku:${{ matrix.stack_number }}-build
       options: --user root
     strategy:
+      fail-fast: false
       matrix:
-        stack_number: ["22", "24"]
+        stack_number: ["22", "24", "26"]
         test_suite: ["npm", "yarn", "pnpm", "general"]
     env:
       STACK: heroku-${{ matrix.stack_number }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Functional tests (${{ matrix.test_suite }}) on heroku:${{ matrix.stack_number }}-build
         run: test/run-${{ matrix.test_suite }}
 
@@ -53,11 +69,11 @@ jobs:
       HATCHET_EXPENSIVE_MODE: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install Ruby and gems
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.1
+          ruby-version: "4.0"
           bundler-cache: true
       - name: Run hatchet tests
         run: make hatchet
@@ -76,8 +92,8 @@ jobs:
     name: Test Metrics (${{ matrix.version }})
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.version }}
       - run: npx mocha@${{ matrix.mocha }} metrics/test/metrics.spec.cjs
@@ -87,11 +103,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Update Rust toolchain
         run: rustup update
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Run tests
         run: cargo test --manifest-path ./resolve-version/Cargo.toml --locked
       - name: Clippy
@@ -102,9 +118,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
       - name: Install dependencies
